@@ -3,7 +3,7 @@ export interface GameConfig {
   whiteModel: { id: number; name: string; openrouterId: string };
   blackModel: { id: number; name: string; openrouterId: string };
   maxMoves?: number; // default 150 full moves
-  turnTimeoutMs?: number; // default 120000 (2 min)
+  turnTimeoutMs?: number; // default 240000 (4 min)
   maxRetries?: number; // default 3
 }
 

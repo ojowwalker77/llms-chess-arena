@@ -1,9 +1,14 @@
-import { resolve } from "path";
+import { join } from "path";
+import { spawn } from "child_process";
 
-const SF_PATH = resolve(
-  process.cwd(),
-  "node_modules/stockfish/bin/stockfish-18-single.js"
-);
+/**
+ * Get the stockfish WASM JS path at runtime (not build time).
+ * Constructed dynamically to prevent Turbopack from tracing it.
+ */
+function getStockfishPath(): string {
+  const parts = ["node_modules", "stockfish", "bin", "stockfish-18-single.js"];
+  return join(process.cwd(), ...parts);
+}
 
 /**
  * Evaluate a chess position server-side using the Stockfish WASM engine.
@@ -29,55 +34,64 @@ async function evaluateWithStockfish(
   fen: string,
   depth: number
 ): Promise<number> {
-  const worker = new Worker(SF_PATH);
+  const sfPath = getStockfishPath();
 
   return new Promise<number>((resolve, reject) => {
+    const proc = spawn("node", [sfPath], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
     const timeout = setTimeout(() => {
-      worker.terminate();
+      proc.kill();
       reject(new Error("Stockfish evaluation timed out"));
     }, 10000);
 
     let gotUciOk = false;
     let lastCp = 0;
+    let buffer = "";
 
-    worker.onmessage = (e: MessageEvent) => {
-      const line = String(e.data);
+    proc.stdout.on("data", (data: Buffer) => {
+      buffer += data.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop()!; // keep incomplete line in buffer
 
-      if (line === "uciok") {
-        gotUciOk = true;
-        worker.postMessage(`position fen ${fen}`);
-        worker.postMessage(`go depth ${depth}`);
+      for (const line of lines) {
+        if (line === "uciok") {
+          gotUciOk = true;
+          proc.stdin.write(`position fen ${fen}\n`);
+          proc.stdin.write(`go depth ${depth}\n`);
+        }
+
+        if (gotUciOk) {
+          if (line.includes("score cp")) {
+            const m = line.match(/score cp (-?\d+)/);
+            if (m) lastCp = parseInt(m[1]);
+          }
+          if (line.includes("score mate")) {
+            const m = line.match(/score mate (-?\d+)/);
+            if (m) lastCp = parseInt(m[1]) > 0 ? 99999 : -99999;
+          }
+          if (line.startsWith("bestmove")) {
+            clearTimeout(timeout);
+            proc.stdin.write("quit\n");
+            proc.kill();
+
+            // Stockfish returns eval from side-to-move's perspective.
+            // Normalize to white's perspective.
+            const sideToMove = fen.split(" ")[1];
+            const normalizedCp = sideToMove === "b" ? -lastCp : lastCp;
+            resolve(normalizedCp);
+          }
+        }
       }
+    });
 
-      if (gotUciOk) {
-        if (line.includes("score cp")) {
-          const m = line.match(/score cp (-?\d+)/);
-          if (m) lastCp = parseInt(m[1]);
-        }
-        if (line.includes("score mate")) {
-          const m = line.match(/score mate (-?\d+)/);
-          if (m) lastCp = parseInt(m[1]) > 0 ? 99999 : -99999;
-        }
-        if (line.startsWith("bestmove")) {
-          clearTimeout(timeout);
-          worker.terminate();
-
-          // Stockfish returns eval from side-to-move's perspective.
-          // Normalize to white's perspective.
-          const sideToMove = fen.split(" ")[1];
-          const normalizedCp = sideToMove === "b" ? -lastCp : lastCp;
-          resolve(normalizedCp);
-        }
-      }
-    };
-
-    worker.onerror = (err) => {
+    proc.on("error", (err) => {
       clearTimeout(timeout);
-      worker.terminate();
       reject(err);
-    };
+    });
 
-    worker.postMessage("uci");
+    proc.stdin.write("uci\n");
   });
 }
 

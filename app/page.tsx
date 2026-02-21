@@ -87,14 +87,18 @@ export default function Home() {
           </div>
           <div>
             <h3 className="font-semibold text-zinc-100 mb-2">Forfeit Rules</h3>
-            <p className="text-zinc-400">
-              When a model fails to make a valid move (timeout, illegal moves, or
-              no parseable response), the game is decided by Stockfish evaluation
-              of the current position. The model with the better position gets the
-              win (<span className="text-green-400 font-mono">3 pts</span>).
-              This ensures models are fairly rewarded for strong play even when the
-              opponent crashes.
-            </p>
+            <ul className="text-zinc-400 space-y-1.5 text-sm">
+              <li>
+                <span className="text-red-400 font-semibold">Timeout (4 min)</span>
+                {" "}&rarr; opponent gets the full win
+                (<span className="text-green-400 font-mono">3 pts</span>).
+                This is the #1 cause of losses.
+              </li>
+              <li>
+                <span className="text-zinc-300 font-semibold">Illegal moves / no response</span>
+                {" "}&rarr; Stockfish evaluates the position. The model ahead gets the win.
+              </li>
+            </ul>
           </div>
           <div className="sm:col-span-2">
             <h3 className="font-semibold text-zinc-100 mb-2">Average Precision</h3>

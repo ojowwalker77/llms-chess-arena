@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as tournamentQueries from "@/lib/db/queries/tournaments";
 import * as matchQueries from "@/lib/db/queries/matches";
 import * as modelQueries from "@/lib/db/queries/models";
-import { generateRoundRobinPairings } from "@/lib/tournament/manager";
+import { generateRoundRobinRounds } from "@/lib/tournament/manager";
 
 export const dynamic = "force-dynamic";
 
@@ -26,41 +26,72 @@ export async function GET(
   const models = modelQueries.getModelsByIds(modelIds);
   const modelMap = new Map(models.map((m) => [m.id, m]));
 
-  const allPairings = generateRoundRobinPairings(modelIds);
+  const allRounds = generateRoundRobinRounds(modelIds);
 
-  let completed = 0;
-  let running = 0;
+  let totalCompleted = 0;
+  let totalRunning = 0;
+  let totalGames = 0;
 
-  const pairings = allPairings.map((p) => {
-    const existing = matchQueries.getMatchByTournamentPairing(
-      tournamentId,
-      p.whiteId,
-      p.blackId
-    );
-    if (existing?.status === "completed") completed++;
-    if (existing?.status === "running") running++;
+  const rounds = allRounds.map((round) => {
+    let roundCompleted = 0;
+    let roundRunning = 0;
 
-    const wm = modelMap.get(p.whiteId);
-    const bm = modelMap.get(p.blackId);
+    const pairings = round.pairings.map((p) => {
+      totalGames++;
+      const existing = matchQueries.getMatchByTournamentPairing(
+        tournamentId,
+        p.whiteId,
+        p.blackId
+      );
+      if (existing?.status === "completed") {
+        totalCompleted++;
+        roundCompleted++;
+      }
+      if (existing?.status === "running") {
+        totalRunning++;
+        roundRunning++;
+      }
+
+      const wm = modelMap.get(p.whiteId);
+      const bm = modelMap.get(p.blackId);
+
+      return {
+        whiteModel: wm
+          ? { id: wm.id, name: wm.name, openrouterId: wm.openrouterId }
+          : null,
+        blackModel: bm
+          ? { id: bm.id, name: bm.name, openrouterId: bm.openrouterId }
+          : null,
+        match: existing
+          ? {
+              id: existing.id,
+              status: existing.status,
+              result: existing.result,
+              resultReason: existing.resultReason,
+            }
+          : null,
+      };
+    });
+
+    const roundStatus =
+      roundCompleted === round.pairings.length
+        ? "completed"
+        : roundCompleted > 0 || roundRunning > 0
+          ? "partial"
+          : "pending";
 
     return {
-      whiteModel: wm ? { id: wm.id, name: wm.name, openrouterId: wm.openrouterId } : null,
-      blackModel: bm ? { id: bm.id, name: bm.name, openrouterId: bm.openrouterId } : null,
-      match: existing
-        ? {
-            id: existing.id,
-            status: existing.status,
-            result: existing.result,
-            resultReason: existing.resultReason,
-          }
-        : null,
+      roundNumber: round.roundNumber,
+      isReverse: round.isReverse,
+      pairings,
+      status: roundStatus,
     };
   });
 
   return NextResponse.json({
     ...tournament,
     modelIds,
-    pairings,
-    stats: { total: allPairings.length, completed, running },
+    rounds,
+    stats: { total: totalGames, completed: totalCompleted, running: totalRunning },
   });
 }

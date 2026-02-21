@@ -28,7 +28,7 @@ export async function runGame(config: GameConfig): Promise<GameOutcome> {
 
   const maxHalfMoves = (config.maxMoves || 150) * 2;
   const maxRetries = config.maxRetries || 3;
-  const turnTimeoutMs = config.turnTimeoutMs || 120000;
+  const turnTimeoutMs = config.turnTimeoutMs || 240000;
 
   matchQueries.updateMatchStatus(config.matchId, "running");
 
@@ -50,16 +50,29 @@ export async function runGame(config: GameConfig): Promise<GameOutcome> {
     );
 
     if (!turnResult.success) {
-      // Evaluate position to determine winner fairly
-      const evalCp = await evaluatePosition(game.fen());
       let result: "white" | "black" | "draw";
-      if (evalCp > 0) result = "white";
-      else if (evalCp < 0) result = "black";
-      else result = "draw";
 
-      console.log(
-        `[Match ${config.matchId}] Forfeit by ${color} (${turnResult.reason}). Eval: ${evalCp}cp → ${result} wins`
-      );
+      if (turnResult.reason === "timeout") {
+        // Timeout: opponent gets the win directly
+        result = color === "white" ? "black" : "white";
+        console.log(
+          `[Match ${config.matchId}] Timeout by ${color} (${currentModel.name}) → ${result} wins`
+        );
+      } else {
+        // Other forfeits (invalid_move, etc.): evaluate position with Stockfish
+        const evalCp = await evaluatePosition(game.fen());
+        if (evalCp > 0) result = "white";
+        else if (evalCp < 0) result = "black";
+        else result = "draw";
+
+        console.log(
+          `[Match ${config.matchId}] Forfeit by ${color} (${currentModel.name}) (${turnResult.reason}). Eval: ${evalCp}cp → ${result}`
+        );
+      }
+
+      if (turnResult.thinking) {
+        console.log(`[Match ${config.matchId}] Debug output:`, turnResult.thinking);
+      }
 
       finishGame(config.matchId, result, turnResult.reason, game, halfMoveCount);
       return { result, reason: turnResult.reason, totalHalfMoves: halfMoveCount };
@@ -147,7 +160,8 @@ async function executeTurn(
     allThinking.push(`[Attempt ${attempt + 1}] Engine rejected move: ${result.move}`);
   }
 
-  return { success: false, reason: "invalid_move" };
+  console.error(`[executeTurn] All retries exhausted for ${model.name}:`, allThinking);
+  return { success: false, reason: "invalid_move", thinking: JSON.stringify(allThinking) };
 }
 
 function finishGame(

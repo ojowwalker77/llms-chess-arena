@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import type { ChessGame } from "../chess/engine";
 import { callOpenRouter } from "./openrouter";
 
@@ -74,42 +75,49 @@ async function spawnCli(
 ): Promise<string> {
   const { command, args } = getCliCommand(openrouterId);
 
-  const proc = Bun.spawn([command, ...args], {
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-    env: {
-      ...process.env,
-      // Prevent nested-session errors when running inside Claude Code
-      CLAUDECODE: undefined,
-    },
-  });
+  return new Promise<string>((resolve, reject) => {
+    const env = { ...process.env };
+    delete env.CLAUDECODE; // Prevent nested-session errors
 
-  // Write prompt to stdin and close
-  proc.stdin.write(prompt);
-  proc.stdin.end();
+    const proc = spawn(command, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env,
+    });
 
-  // Race between completion and timeout
-  const outputPromise = (async () => {
-    const output = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      throw new Error(`CLI exited with code ${exitCode}: ${stderr.slice(0, 500)}`);
-    }
-    return output;
-  })();
+    let stdout = "";
+    let stderr = "";
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    proc.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+    proc.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    const timeout = setTimeout(() => {
       proc.kill();
       const err = new Error("CLI process timed out");
       err.name = "AbortError";
       reject(err);
     }, timeoutMs);
-  });
 
-  return Promise.race([outputPromise, timeoutPromise]);
+    proc.on("close", (exitCode) => {
+      clearTimeout(timeout);
+      if (exitCode !== 0) {
+        reject(new Error(`CLI exited with code ${exitCode}: ${stderr.slice(0, 500)}`));
+      } else {
+        resolve(stdout);
+      }
+    });
+
+    proc.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+  });
 }
 
 /**
@@ -191,12 +199,14 @@ MOVE HISTORY: ${historyStr}
 
 LEGAL MOVES: ${legalMoves.join(", ")}
 
-Your goal is to win. Think about piece development, king safety, pawn structure, and tactical opportunities. You have 2 minutes to respond.
+Your goal is to win. Think about piece development, king safety, pawn structure, and tactical opportunities.
+
+*** CRITICAL: You have a STRICT 4-MINUTE TIMEOUT. If you exceed it, you LOSE THE GAME IMMEDIATELY — your opponent gets the full win. Timeout is the #1 cause of losses in this arena. Be decisive. Do NOT overthink. Pick a strong move and output it FAST. ***
 
 After your analysis, output your chosen move on its own line in EXACTLY this format:
 MOVE: <your move>
 
-The move MUST be exactly one of the legal moves listed above, in Standard Algebraic Notation (SAN).`;
+The move MUST be exactly one of the legal moves listed above, in Standard Algebraic Notation (SAN). Do NOT output anything after the MOVE line.`;
 }
 
 function formatMoveHistory(moves: string[]): string {

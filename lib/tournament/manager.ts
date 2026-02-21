@@ -1,25 +1,55 @@
-import type { Pairing } from "./types";
+import type { Pairing, Round } from "./types";
 
 /**
- * Generate round-robin pairings where each pair plays twice (swap colors).
- * Shuffled with a seeded PRNG so order is random but deterministic.
+ * Generate round-robin rounds using the circle method.
+ * Each round has N/2 games. First half = original colors, second half = mirrored.
+ * For 12 models: 22 rounds × 6 games = 132 total.
+ */
+export function generateRoundRobinRounds(modelIds: number[]): Round[] {
+  const n = modelIds.length;
+  const ids = n % 2 === 0 ? [...modelIds] : [...modelIds, -1];
+  const total = ids.length;
+  const half = total / 2;
+  const numRounds = total - 1;
+
+  const rounds: Round[] = [];
+
+  // First half: original colors
+  for (let r = 0; r < numRounds; r++) {
+    const pairings: Pairing[] = [];
+    const rotated = [ids[0]];
+    for (let i = 1; i < total; i++) {
+      rotated.push(ids[((i - 1 + r) % (total - 1)) + 1]);
+    }
+    for (let i = 0; i < half; i++) {
+      const white = rotated[i];
+      const black = rotated[total - 1 - i];
+      if (white !== -1 && black !== -1) {
+        pairings.push({ whiteId: white, blackId: black });
+      }
+    }
+    rounds.push({ roundNumber: r + 1, pairings, isReverse: false });
+  }
+
+  // Second half: mirror colors
+  for (let r = 0; r < numRounds; r++) {
+    const original = rounds[r];
+    rounds.push({
+      roundNumber: numRounds + r + 1,
+      pairings: original.pairings.map((p) => ({
+        whiteId: p.blackId,
+        blackId: p.whiteId,
+      })),
+      isReverse: true,
+    });
+  }
+
+  return rounds;
+}
+
+/**
+ * Flatten rounds into a flat pairing list (backward compat).
  */
 export function generateRoundRobinPairings(modelIds: number[]): Pairing[] {
-  const pairings: Pairing[] = [];
-  for (let i = 0; i < modelIds.length; i++) {
-    for (let j = i + 1; j < modelIds.length; j++) {
-      pairings.push({ whiteId: modelIds[i], blackId: modelIds[j] });
-      pairings.push({ whiteId: modelIds[j], blackId: modelIds[i] });
-    }
-  }
-
-  // Seeded shuffle so it's random but stable across page loads
-  let seed = 42;
-  for (let i = pairings.length - 1; i > 0; i--) {
-    seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
-    const j = seed % (i + 1);
-    [pairings[i], pairings[j]] = [pairings[j], pairings[i]];
-  }
-
-  return pairings;
+  return generateRoundRobinRounds(modelIds).flatMap((r) => r.pairings);
 }

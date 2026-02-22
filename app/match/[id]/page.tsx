@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getMatchWithModels, getMatchMoves } from "@/lib/db/queries/matches";
 import { ReplayBoard } from "@/components/board/ReplayBoard";
 import { LiveMatchBoard } from "@/components/board/LiveMatchBoard";
@@ -36,14 +37,27 @@ export default async function MatchPage({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <a
-          href="/"
-          className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
-        >
-          &larr; Back to Leaderboard
-        </a>
+        <div className="flex items-center gap-4 text-sm">
+          {match.tournamentId && (
+            <Link
+              href={`/tournaments/${match.tournamentId}`}
+              className="text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              &larr; Back to Tournament
+            </Link>
+          )}
+          <Link
+            href="/"
+            className="text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            {match.tournamentId ? "Leaderboard" : "\u2190 Back to Leaderboard"}
+          </Link>
+        </div>
         <div className="flex items-center gap-3 mt-2">
-          <h1 className="text-2xl font-bold">
+          <h1
+            className="text-2xl font-bold"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             {match.whiteModel?.name || "Unknown"} vs{" "}
             {match.blackModel?.name || "Unknown"}
           </h1>

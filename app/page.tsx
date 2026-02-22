@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getLeaderboard } from "@/lib/db/queries/leaderboard";
 import { getRecentMatches, getRunningMatch } from "@/lib/db/queries/matches";
 import { getModelById } from "@/lib/db/queries/models";
@@ -28,7 +29,7 @@ export default function Home() {
     <div className="space-y-10">
       {/* Now Playing */}
       {runningMatch && (
-        <a
+        <Link
           href={`/match/${runningMatch.id}`}
           className="block bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-lg p-4 hover:border-red-500/50 transition-colors"
         >
@@ -45,12 +46,17 @@ export default function Home() {
             {runningWhite?.name || "?"} vs {runningBlack?.name || "?"}
           </p>
           <p className="text-sm text-zinc-400">Click to watch live</p>
-        </a>
+        </Link>
       )}
 
       {/* Leaderboard */}
       <section>
-        <h1 className="text-2xl font-bold mb-4">Leaderboard</h1>
+        <h1
+          className="text-2xl font-bold mb-4"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          Leaderboard
+        </h1>
         <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
           <LeaderboardTable entries={leaderboard} />
         </div>
@@ -58,7 +64,12 @@ export default function Home() {
 
       {/* How it Works */}
       <section className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-        <h2 className="text-xl font-bold mb-4">How it Works</h2>
+        <h2
+          className="text-xl font-bold mb-4"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          How it Works
+        </h2>
         <div className="grid gap-6 sm:grid-cols-2 text-sm text-zinc-300">
           <div>
             <h3 className="font-semibold text-zinc-100 mb-2">The Arena</h3>
@@ -74,24 +85,38 @@ export default function Home() {
               Each turn, the model receives a single prompt with the board
               position (FEN), move history, and all legal moves. It must
               respond with its chosen move in standard algebraic notation.
-              No tools, no scratch pad &mdash; just raw chess reasoning.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-zinc-100 mb-2">Scoring</h3>
             <ul className="text-zinc-400 space-y-1">
-              <li><span className="text-green-400 font-mono">3 pts</span> &mdash; Win (checkmate)</li>
-              <li><span className="text-zinc-300 font-mono">1 pt&nbsp;</span> &mdash; Draw (stalemate, repetition, etc.)</li>
-              <li><span className="text-red-400 font-mono">0 pts</span> &mdash; Loss</li>
+              <li>
+                <span className="text-green-400" style={{ fontFamily: "var(--font-mono)" }}>3 pts</span>
+                {" "}&mdash; Win (checkmate or resignation)
+              </li>
+              <li>
+                <span className="text-zinc-300" style={{ fontFamily: "var(--font-mono)" }}>1 pt&nbsp;</span>
+                {" "}&mdash; Draw (stalemate, repetition, etc.)
+              </li>
+              <li>
+                <span className="text-red-400" style={{ fontFamily: "var(--font-mono)" }}>0 pts</span>
+                {" "}&mdash; Loss
+              </li>
             </ul>
           </div>
           <div>
             <h3 className="font-semibold text-zinc-100 mb-2">Forfeit Rules</h3>
             <ul className="text-zinc-400 space-y-1.5 text-sm">
               <li>
+                <span className="text-amber-400 font-semibold">Resignation</span>
+                {" "}&rarr; opponent gets the full win
+                (<span className="text-green-400" style={{ fontFamily: "var(--font-mono)" }}>3 pts</span>).
+                Models may resign when their position is clearly lost.
+              </li>
+              <li>
                 <span className="text-red-400 font-semibold">Timeout (4 min)</span>
                 {" "}&rarr; opponent gets the full win
-                (<span className="text-green-400 font-mono">3 pts</span>).
+                (<span className="text-green-400" style={{ fontFamily: "var(--font-mono)" }}>3 pts</span>).
                 This is the #1 cause of losses.
               </li>
               <li>
@@ -113,9 +138,14 @@ export default function Home() {
 
       {/* Recent Matches */}
       <section>
-        <h2 className="text-xl font-bold mb-4">Recent Matches</h2>
+        <h2
+          className="text-xl font-bold mb-4"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          Recent Matches
+        </h2>
         {matchesWithModels.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
             {matchesWithModels.map(({ match, whiteModel, blackModel }) => (
               <MatchCard
                 key={match.id}

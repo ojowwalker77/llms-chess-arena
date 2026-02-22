@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getTournamentById } from "@/lib/db/queries/tournaments";
 import { getMatchByTournamentPairing } from "@/lib/db/queries/matches";
 import { getModelsByIds } from "@/lib/db/queries/models";
@@ -95,13 +96,18 @@ export default async function TournamentDetailPage({
   return (
     <div className="space-y-6">
       <div>
-        <a
+        <Link
           href="/tournaments"
           className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
         >
           &larr; Back to Tournaments
-        </a>
-        <h1 className="text-2xl font-bold mt-2">{tournament.name}</h1>
+        </Link>
+        <h1
+          className="text-2xl font-bold mt-2"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {tournament.name}
+        </h1>
         <p className="text-sm text-zinc-400 mt-1">
           {models.length} models &middot; {totalGames} matches &middot;{" "}
           {allRounds.length} rounds
@@ -114,12 +120,12 @@ export default async function TournamentDetailPage({
           <span className="text-zinc-400">Progress</span>
           <div className="flex items-center gap-4">
             {totalRunning > 0 && (
-              <a
+              <Link
                 href={`/tournaments/${tournamentId}/live`}
                 className="text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors"
               >
                 Watch Live ({totalRunning} running) &rarr;
-              </a>
+              </Link>
             )}
             <span className="text-zinc-200 font-mono">
               {totalCompleted}/{totalGames}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Tournament } from "@/lib/db/schema";
 
 export function TournamentCard({
@@ -14,7 +15,7 @@ export function TournamentCard({
   const isDone = completed === total && total > 0;
 
   return (
-    <a
+    <Link
       href={`/tournaments/${tournament.id}`}
       className="block bg-zinc-900 rounded-lg border border-zinc-800 p-4 hover:border-zinc-600 transition-colors"
     >
@@ -47,6 +48,6 @@ export function TournamentCard({
           style={{ width: `${progressPct}%` }}
         />
       </div>
-    </a>
+    </Link>
   );
 }

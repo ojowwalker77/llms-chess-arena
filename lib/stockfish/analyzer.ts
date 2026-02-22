@@ -1,22 +1,16 @@
 /**
  * Browser-side Stockfish WASM analyzer.
  * Uses a Web Worker to run Stockfish in a separate thread.
- * Single-threaded version (no SharedArrayBuffer required).
  */
 
 export interface PositionEval {
-  /** Centipawn evaluation from white's perspective */
   eval: number;
-  /** Best move in UCI notation */
   bestMove: string;
-  /** Depth reached */
   depth: number;
 }
 
 export interface MoveAnalysis {
-  /** Centipawn evaluation after this move (from white's perspective) */
   eval: number;
-  /** Centipawn loss for the player who made this move */
   cpl: number;
 }
 
@@ -51,10 +45,8 @@ export class StockfishAnalyzer {
         reject(new Error(`Stockfish worker error: ${e.message}`));
       };
 
-      // Start UCI protocol
       this.worker.postMessage("uci");
 
-      // Timeout after 10 seconds
       setTimeout(() => {
         if (!this.ready) {
           reject(new Error("Stockfish initialization timed out"));
@@ -63,9 +55,6 @@ export class StockfishAnalyzer {
     });
   }
 
-  /**
-   * Evaluate a single position at the given depth.
-   */
   async evaluatePosition(fen: string, depth = 18): Promise<PositionEval> {
     if (!this.worker || !this.ready) {
       throw new Error("Stockfish not initialized");
@@ -79,7 +68,6 @@ export class StockfishAnalyzer {
       const handler = (e: MessageEvent) => {
         const line = e.data as string;
 
-        // Parse info lines for eval
         if (line.includes("score cp")) {
           const cpMatch = line.match(/score cp (-?\d+)/);
           const depthMatch = line.match(/depth (\d+)/);
@@ -87,17 +75,14 @@ export class StockfishAnalyzer {
           if (depthMatch) lastDepth = parseInt(depthMatch[1]);
         }
 
-        // Mate score
         if (line.includes("score mate")) {
           const mateMatch = line.match(/score mate (-?\d+)/);
           if (mateMatch) {
             const mateIn = parseInt(mateMatch[1]);
-            // Use large values for mate scores
             lastEval = mateIn > 0 ? 99999 : -99999;
           }
         }
 
-        // Best move = search is done
         if (line.startsWith("bestmove")) {
           bestMove = line.split(" ")[1] || "";
           this.worker!.removeEventListener("message", handler);
@@ -112,16 +97,11 @@ export class StockfishAnalyzer {
     });
   }
 
-  /**
-   * Analyze a full game and return centipawn loss per move.
-   * Each move is evaluated relative to the previous position's best eval.
-   */
   async analyzeGame(
     moves: Array<{ fenAfter: string; color: "white" | "black" }>,
     onProgress?: (current: number, total: number) => void,
-    depth = 16
+    depth = 16,
   ): Promise<MoveAnalysis[]> {
-    // First, get eval of starting position
     const startingFen =
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     const startEval = await this.evaluatePosition(startingFen, depth);
@@ -133,15 +113,10 @@ export class StockfishAnalyzer {
       const move = moves[i];
       const posEval = await this.evaluatePosition(move.fenAfter, depth);
 
-      // CPL calculation:
-      // White wants eval to be high (positive). If eval dropped, that's bad for white.
-      // Black wants eval to be low (negative). If eval rose, that's bad for black.
       let cpl: number;
       if (move.color === "white") {
-        // White just moved. If the eval got worse for white, that's CPL.
         cpl = Math.max(0, prevEval - posEval.eval);
       } else {
-        // Black just moved. If the eval got better for white (worse for black), that's CPL.
         cpl = Math.max(0, posEval.eval - prevEval);
       }
 

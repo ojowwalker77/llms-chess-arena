@@ -50,10 +50,12 @@ export function MoveList({
   moves,
   currentIndex,
   onSelectMove,
+  className,
 }: {
   moves: Move[];
   currentIndex: number;
   onSelectMove: (index: number) => void;
+  className?: string;
 }) {
   const qualities: MoveQuality[] = moves.map((move, i) => {
     const prevEval = i === 0 ? 0 : moves[i - 1].engineEval;
@@ -82,7 +84,7 @@ export function MoveList({
   }
 
   return (
-    <div className="overflow-y-auto max-h-48 text-sm font-mono">
+    <div className={className || "overflow-y-auto max-h-48 text-sm font-mono"}>
       {pairs.map((pair) => (
         <div
           key={pair.moveNumber}

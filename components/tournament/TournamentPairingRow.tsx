@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { getLabLogo } from "@/lib/ui/logos";
 
 interface ModelInfo {
@@ -98,7 +99,7 @@ export function TournamentPairingRow({
       {/* Status / Action */}
       <div className="w-24 shrink-0 flex justify-end">
         {isCompleted && match ? (
-          <a
+          <Link
             href={`/match/${match.id}`}
             className="flex items-center gap-2 text-sm"
           >
@@ -110,9 +111,9 @@ export function TournamentPairingRow({
                 {match.resultReason}
               </span>
             )}
-          </a>
+          </Link>
         ) : isRunning && match ? (
-          <a
+          <Link
             href={`/match/${match.id}`}
             className="flex items-center gap-2 text-sm text-amber-400"
           >
@@ -121,7 +122,7 @@ export function TournamentPairingRow({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
             </span>
             Live
-          </a>
+          </Link>
         ) : (
           <button
             onClick={handlePlay}

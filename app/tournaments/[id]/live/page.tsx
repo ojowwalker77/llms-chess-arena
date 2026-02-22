@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 import { CompactLiveBoard } from "@/components/board/CompactLiveBoard";
 
 interface MatchInfo {
@@ -126,13 +127,16 @@ export default function LivePage({
   return (
     <div className="space-y-6">
       <div>
-        <a
+        <Link
           href={`/tournaments/${id}`}
           className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
         >
           &larr; Back to Tournament
-        </a>
-        <h1 className="text-2xl font-bold mt-2">
+        </Link>
+        <h1
+          className="text-2xl font-bold mt-2"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
           {data.name} &mdash; Live View
         </h1>
         <p className="text-sm text-zinc-400 mt-1">
@@ -157,12 +161,12 @@ export default function LivePage({
       ) : (
         <div className="text-center py-20">
           <p className="text-zinc-500 text-lg">No games currently running</p>
-          <a
+          <Link
             href={`/tournaments/${id}`}
             className="text-sm text-zinc-400 hover:text-zinc-200 mt-2 inline-block transition-colors"
           >
             Go back to start a round &rarr;
-          </a>
+          </Link>
         </div>
       )}
     </div>

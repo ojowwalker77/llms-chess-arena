@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { MoveList } from "./MoveList";
 import { EvalBar } from "./EvalBar";
@@ -46,6 +46,7 @@ export function LiveMatchBoard({
     initialMoves.length > 0 ? initialMoves.length - 1 : -1
   );
   const [boardWidth, setBoardWidth] = useState(480);
+  const [isWideLayout, setIsWideLayout] = useState(false);
   const [localEvals, setLocalEvals] = useState<Record<number, number>>({});
   const prevMovesLen = useRef(initialMoves.length);
   const evaledRef = useRef(new Set<number>());
@@ -105,11 +106,17 @@ export function LiveMatchBoard({
       ? moves[currentIndex]?.engineEval ?? localEvals[moves[currentIndex]?.id] ?? null
       : null;
 
-  // Responsive board size
+  // Responsive board size + layout mode
   useEffect(() => {
     function updateSize() {
-      const width = Math.min(window.innerWidth - 120, 640);
-      setBoardWidth(Math.max(320, width));
+      const wide = window.innerWidth >= 1024;
+      setIsWideLayout(wide);
+      if (wide) {
+        setBoardWidth(520);
+      } else {
+        const width = Math.min(window.innerWidth - 120, 640);
+        setBoardWidth(Math.max(320, width));
+      }
     }
     updateSize();
     window.addEventListener("resize", updateSize);
@@ -157,8 +164,95 @@ export function LiveMatchBoard({
   const blackLogo = blackOpenrouterId ? getLabLogo(blackOpenrouterId) : null;
 
   // Determine who is thinking (live only)
-  const isWhiteTurn = moves.length % 2 === 0; // even = white's turn
+  const isWhiteTurn = moves.length % 2 === 0;
   const thinkingModel = isLive ? (isWhiteTurn ? whiteModel : blackModel) : null;
+
+  const controlsBar = (
+    <div className="flex items-center gap-1 px-2 py-1.5">
+      <ControlButton onClick={() => handleManualNav(-1)} title="Start">
+        <SkipBackIcon />
+      </ControlButton>
+      <ControlButton
+        onClick={() => handleManualNav(Math.max(-1, currentIndex - 1))}
+        title="Previous"
+      >
+        <StepBackIcon />
+      </ControlButton>
+      <ControlButton
+        onClick={() => {
+          const next = Math.min(moves.length - 1, currentIndex + 1);
+          setCurrentIndex(next);
+          if (next === moves.length - 1) setFollowLive(true);
+        }}
+        title="Next"
+      >
+        <StepForwardIcon />
+      </ControlButton>
+      <ControlButton
+        onClick={() => {
+          setFollowLive(true);
+          setCurrentIndex(moves.length - 1);
+        }}
+        title="End"
+      >
+        <SkipForwardIcon />
+      </ControlButton>
+      <span className="ml-auto text-xs text-zinc-500" style={{ fontFamily: "var(--font-mono)" }}>
+        {currentIndex === -1
+          ? "Start"
+          : `Move ${Math.ceil((currentIndex + 1) / 2)}`}
+        {" / "}{Math.ceil(moves.length / 2)}
+      </span>
+    </div>
+  );
+
+  const responsePanel = currentIndex >= 0 && moves[currentIndex]?.thinking && (
+    <details className="border-t border-zinc-800">
+      <summary className="px-3 py-2 cursor-pointer text-xs text-zinc-400 hover:text-zinc-200 select-none flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${
+            moves[currentIndex].color === "white"
+              ? "bg-zinc-200"
+              : "bg-zinc-600"
+          }`}
+        />
+        {moves[currentIndex].color === "white" ? whiteModel : blackModel}
+        {" \u2014 Move "}{moves[currentIndex].moveNumber}
+      </summary>
+      <div className={`px-3 pb-2 overflow-y-auto ${isWideLayout ? "max-h-32" : "max-h-60"}`}>
+        <ResponseLog thinking={moves[currentIndex].thinking} />
+      </div>
+    </details>
+  );
+
+  const sidePanel = (
+    <div
+      className={`bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden flex flex-col ${
+        isWideLayout ? "" : "mt-3"
+      }`}
+      style={isWideLayout ? { height: boardWidth } : undefined}
+    >
+      {/* Moves header */}
+      <div className="px-3 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-400 uppercase tracking-wider">
+        Moves
+      </div>
+      {/* Scrollable move list */}
+      <div className="flex-1 min-h-0">
+        <MoveList
+          moves={moves}
+          currentIndex={currentIndex}
+          onSelectMove={handleManualNav}
+          className="overflow-y-auto h-full text-sm font-mono"
+        />
+      </div>
+      {/* Controls */}
+      <div className="border-t border-zinc-800">
+        {controlsBar}
+      </div>
+      {/* LLM Response */}
+      {responsePanel}
+    </div>
+  );
 
   return (
     <div>
@@ -189,7 +283,10 @@ export function LiveMatchBoard({
       {/* Game over banner */}
       {!isLive && resultLabel && (
         <div className="flex items-center gap-3 mb-3 bg-zinc-800/50 rounded-lg px-4 py-2">
-          <span className="font-mono text-lg font-bold text-zinc-100">
+          <span
+            className="text-lg font-bold text-zinc-100"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
             {resultLabel}
           </span>
           {resultReason && (
@@ -200,17 +297,18 @@ export function LiveMatchBoard({
         </div>
       )}
 
-      <div style={{ maxWidth: boardWidth + 40 }}>
-        {/* Black player bar */}
-        <PlayerBar
-          name={blackModel}
-          logo={blackLogo}
-          colorClass="bg-zinc-800 border border-zinc-600"
-          isThinking={isLive && !isWhiteTurn}
-        />
+      {/* Player bar — black */}
+      <PlayerBar
+        name={blackModel}
+        logo={blackLogo}
+        colorClass="bg-zinc-800 border border-zinc-600"
+        isThinking={isLive && !isWhiteTurn}
+      />
 
+      {/* Board + Side Panel */}
+      <div className={isWideLayout ? "flex gap-4" : ""}>
         {/* Board + Eval */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <div style={{ height: boardWidth }}>
             <EvalBar eval={currentEval} />
           </div>
@@ -227,84 +325,24 @@ export function LiveMatchBoard({
           </div>
         </div>
 
-        {/* White player bar */}
-        <PlayerBar
-          name={whiteModel}
-          logo={whiteLogo}
-          colorClass="bg-white"
-          isThinking={isLive && isWhiteTurn}
-        />
-
-        {/* Controls */}
-        <div className="flex items-center gap-1 mt-2">
-          <ControlButton onClick={() => handleManualNav(-1)} title="Start">
-            <SkipBackIcon />
-          </ControlButton>
-          <ControlButton
-            onClick={() => handleManualNav(Math.max(-1, currentIndex - 1))}
-            title="Previous"
-          >
-            <StepBackIcon />
-          </ControlButton>
-          <ControlButton
-            onClick={() => {
-              const next = Math.min(moves.length - 1, currentIndex + 1);
-              setCurrentIndex(next);
-              if (next === moves.length - 1) setFollowLive(true);
-            }}
-            title="Next"
-          >
-            <StepForwardIcon />
-          </ControlButton>
-          <ControlButton
-            onClick={() => {
-              setFollowLive(true);
-              setCurrentIndex(moves.length - 1);
-            }}
-            title="End"
-          >
-            <SkipForwardIcon />
-          </ControlButton>
-          <span className="ml-auto text-sm text-zinc-500 font-mono">
-            {currentIndex === -1
-              ? "Start"
-              : `Move ${Math.ceil((currentIndex + 1) / 2)}`}
-            {" / "}{Math.ceil(moves.length / 2)}
-          </span>
-        </div>
-
-        {/* Move list */}
-        <div className="mt-3 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
-          <div className="px-3 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-            Moves
+        {/* Side Panel (desktop) or Below (mobile) */}
+        {isWideLayout ? (
+          <div className="flex-1 min-w-0">
+            {sidePanel}
           </div>
-          <MoveList
-            moves={moves}
-            currentIndex={currentIndex}
-            onSelectMove={handleManualNav}
-          />
-        </div>
+        ) : null}
       </div>
 
-      {/* LLM Response - collapsible */}
-      {currentIndex >= 0 && moves[currentIndex]?.thinking && (
-        <details className="mt-3 bg-zinc-900 rounded-lg border border-zinc-800" style={{ maxWidth: boardWidth + 40 }}>
-          <summary className="px-4 py-2 cursor-pointer text-sm text-zinc-400 hover:text-zinc-200 select-none flex items-center gap-2">
-            <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                moves[currentIndex].color === "white"
-                  ? "bg-zinc-200"
-                  : "bg-zinc-600"
-              }`}
-            />
-            {moves[currentIndex].color === "white" ? whiteModel : blackModel}
-            {" \u2014 Move "}{moves[currentIndex].moveNumber} response
-          </summary>
-          <div className="px-4 pb-3 max-h-60 overflow-y-auto">
-            <ResponseLog thinking={moves[currentIndex].thinking} />
-          </div>
-        </details>
-      )}
+      {/* Player bar — white */}
+      <PlayerBar
+        name={whiteModel}
+        logo={whiteLogo}
+        colorClass="bg-white"
+        isThinking={isLive && isWhiteTurn}
+      />
+
+      {/* Mobile: moves + controls below */}
+      {!isWideLayout && sidePanel}
     </div>
   );
 }

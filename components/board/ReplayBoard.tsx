@@ -39,6 +39,7 @@ export function ReplayBoard({
   const [autoPlaying, setAutoPlaying] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<string | null>(null);
   const [boardWidth, setBoardWidth] = useState(480);
+  const [isWideLayout, setIsWideLayout] = useState(false);
 
   const currentFen =
     currentIndex === -1 ? STARTING_FEN : moves[currentIndex].fenAfter;
@@ -97,11 +98,17 @@ export function ReplayBoard({
     return () => clearTimeout(timer);
   }, [autoPlaying, currentIndex, moves.length]);
 
-  // Responsive board size
+  // Responsive board size + layout mode
   useEffect(() => {
     function updateSize() {
-      const width = Math.min(window.innerWidth - 120, 640);
-      setBoardWidth(Math.max(320, width));
+      const wide = window.innerWidth >= 1024;
+      setIsWideLayout(wide);
+      if (wide) {
+        setBoardWidth(520);
+      } else {
+        const width = Math.min(window.innerWidth - 120, 640);
+        setBoardWidth(Math.max(320, width));
+      }
     }
     updateSize();
     window.addEventListener("resize", updateSize);
@@ -121,6 +128,86 @@ export function ReplayBoard({
   const whiteLogo = whiteOpenrouterId ? getLabLogo(whiteOpenrouterId) : null;
   const blackLogo = blackOpenrouterId ? getLabLogo(blackOpenrouterId) : null;
 
+  const controlsBar = (
+    <div className="flex items-center gap-1 px-2 py-1.5">
+      <ControlButton onClick={goToStart} title="Start">
+        <SkipBackIcon />
+      </ControlButton>
+      <ControlButton onClick={goToPrev} title="Previous">
+        <StepBackIcon />
+      </ControlButton>
+      <button
+        onClick={() => setAutoPlaying(!autoPlaying)}
+        title={autoPlaying ? "Pause" : "Play"}
+        className={`p-2 rounded transition-colors ${
+          autoPlaying
+            ? "bg-amber-500/20 text-amber-400"
+            : "hover:bg-zinc-800 text-zinc-400 hover:text-white"
+        }`}
+      >
+        {autoPlaying ? <PauseIcon /> : <PlayIcon />}
+      </button>
+      <ControlButton onClick={goToNext} title="Next">
+        <StepForwardIcon />
+      </ControlButton>
+      <ControlButton onClick={goToEnd} title="End">
+        <SkipForwardIcon />
+      </ControlButton>
+      <span className="ml-auto text-xs text-zinc-500" style={{ fontFamily: "var(--font-mono)" }}>
+        {currentIndex === -1 ? "Start" : `Move ${Math.ceil((currentIndex + 1) / 2)}`}
+        {" / "}{Math.ceil(moves.length / 2)}
+      </span>
+    </div>
+  );
+
+  const responsePanel = currentIndex >= 0 && moves[currentIndex]?.thinking && (
+    <details className="border-t border-zinc-800">
+      <summary className="px-3 py-2 cursor-pointer text-xs text-zinc-400 hover:text-zinc-200 select-none flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${
+            moves[currentIndex].color === "white"
+              ? "bg-zinc-200"
+              : "bg-zinc-600"
+          }`}
+        />
+        {moves[currentIndex].color === "white" ? whiteModel : blackModel}
+        {" \u2014 Move "}{moves[currentIndex].moveNumber}
+      </summary>
+      <div className={`px-3 pb-2 overflow-y-auto ${isWideLayout ? "max-h-32" : "max-h-60"}`}>
+        <ResponseLog thinking={moves[currentIndex].thinking} />
+      </div>
+    </details>
+  );
+
+  const sidePanel = (
+    <div
+      className={`bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden flex flex-col ${
+        isWideLayout ? "" : "mt-3"
+      }`}
+      style={isWideLayout ? { height: boardWidth } : undefined}
+    >
+      {/* Moves header */}
+      <div className="px-3 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-400 uppercase tracking-wider">
+        Moves
+      </div>
+      {/* Scrollable move list */}
+      <div className="flex-1 min-h-0">
+        <MoveList
+          moves={moves}
+          currentIndex={currentIndex}
+          onSelectMove={setCurrentIndex}
+          className="overflow-y-auto h-full text-sm font-mono"
+        />
+      </div>
+      {/* Controls */}
+      <div className="border-t border-zinc-800">
+        {controlsBar}
+      </div>
+      {/* LLM Response */}
+      {responsePanel}
+    </div>
+  );
+
   return (
     <>
       <AutoAnalyzer
@@ -135,16 +222,17 @@ export function ReplayBoard({
         </div>
       )}
 
-      <div style={{ maxWidth: boardWidth + 40 }}>
-        {/* Black player bar */}
-        <PlayerBar
-          name={blackModel}
-          logo={blackLogo}
-          colorClass="bg-zinc-800 border border-zinc-600"
-        />
+      {/* Player bar — black */}
+      <PlayerBar
+        name={blackModel}
+        logo={blackLogo}
+        colorClass="bg-zinc-800 border border-zinc-600"
+      />
 
+      {/* Board + Side Panel */}
+      <div className={isWideLayout ? "flex gap-4" : ""}>
         {/* Board + Eval */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <div style={{ height: boardWidth }}>
             <EvalBar eval={currentEval} />
           </div>
@@ -161,76 +249,23 @@ export function ReplayBoard({
           </div>
         </div>
 
-        {/* White player bar */}
-        <PlayerBar
-          name={whiteModel}
-          logo={whiteLogo}
-          colorClass="bg-white"
-        />
-
-        {/* Controls */}
-        <div className="flex items-center gap-1 mt-2">
-          <ControlButton onClick={goToStart} title="Start">
-            <SkipBackIcon />
-          </ControlButton>
-          <ControlButton onClick={goToPrev} title="Previous">
-            <StepBackIcon />
-          </ControlButton>
-          <button
-            onClick={() => setAutoPlaying(!autoPlaying)}
-            title={autoPlaying ? "Pause" : "Play"}
-            className={`p-2 rounded transition-colors ${
-              autoPlaying
-                ? "bg-amber-500/20 text-amber-400"
-                : "hover:bg-zinc-800 text-zinc-400 hover:text-white"
-            }`}
-          >
-            {autoPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <ControlButton onClick={goToNext} title="Next">
-            <StepForwardIcon />
-          </ControlButton>
-          <ControlButton onClick={goToEnd} title="End">
-            <SkipForwardIcon />
-          </ControlButton>
-          <span className="ml-auto text-sm text-zinc-500 font-mono">
-            {currentIndex === -1 ? "Start" : `Move ${Math.ceil((currentIndex + 1) / 2)}`}
-            {" / "}{Math.ceil(moves.length / 2)}
-          </span>
-        </div>
-
-        {/* Move list */}
-        <div className="mt-3 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
-          <div className="px-3 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-400 uppercase tracking-wider">
-            Moves
+        {/* Side Panel (desktop) or Below (mobile) */}
+        {isWideLayout ? (
+          <div className="flex-1 min-w-0">
+            {sidePanel}
           </div>
-          <MoveList
-            moves={moves}
-            currentIndex={currentIndex}
-            onSelectMove={setCurrentIndex}
-          />
-        </div>
+        ) : null}
       </div>
 
-      {/* LLM Response - collapsible */}
-      {currentIndex >= 0 && moves[currentIndex]?.thinking && (
-        <details className="mt-3 bg-zinc-900 rounded-lg border border-zinc-800" style={{ maxWidth: boardWidth + 40 }}>
-          <summary className="px-4 py-2 cursor-pointer text-sm text-zinc-400 hover:text-zinc-200 select-none flex items-center gap-2">
-            <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                moves[currentIndex].color === "white"
-                  ? "bg-zinc-200"
-                  : "bg-zinc-600"
-              }`}
-            />
-            {moves[currentIndex].color === "white" ? whiteModel : blackModel}
-            {" \u2014 Move "}{moves[currentIndex].moveNumber} response
-          </summary>
-          <div className="px-4 pb-3 max-h-60 overflow-y-auto">
-            <ResponseLog thinking={moves[currentIndex].thinking} />
-          </div>
-        </details>
-      )}
+      {/* Player bar — white */}
+      <PlayerBar
+        name={whiteModel}
+        logo={whiteLogo}
+        colorClass="bg-white"
+      />
+
+      {/* Mobile: moves + controls below */}
+      {!isWideLayout && sidePanel}
     </>
   );
 }
@@ -256,7 +291,6 @@ function PlayerBar({
 function ResponseLog({ thinking }: { thinking: string }) {
   try {
     const parsed = JSON.parse(thinking);
-    // New format: array of strings (raw CLI/API outputs)
     if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") {
       return (
         <div className="space-y-2 text-sm">
@@ -266,7 +300,6 @@ function ResponseLog({ thinking }: { thinking: string }) {
         </div>
       );
     }
-    // Legacy format: array of message objects with content/tool_calls
     if (Array.isArray(parsed)) {
       return (
         <div className="space-y-3 text-sm">

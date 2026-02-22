@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { useStockfish } from "@/hooks/useStockfish";
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -147,9 +148,9 @@ export default function AnalyzePage() {
           <p className="text-green-400 font-medium">
             All done! {completed.length} match{completed.length !== 1 ? "es" : ""} analyzed.
           </p>
-          <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200 mt-2 inline-block">
+          <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200 mt-2 inline-block">
             &larr; Back to Leaderboard
-          </a>
+          </Link>
         </div>
       )}
     </div>

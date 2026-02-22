@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Chessboard } from "react-chessboard";
 import { getLabLogo } from "@/lib/ui/logos";
 
@@ -84,7 +85,7 @@ export function CompactLiveBoard({
   const blackLogo = blackOpenrouterId ? getLabLogo(blackOpenrouterId) : null;
 
   return (
-    <a
+    <Link
       href={`/match/${matchId}`}
       className="block bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors"
     >
@@ -164,6 +165,6 @@ export function CompactLiveBoard({
           <span className="text-[10px] text-zinc-500">Completed</span>
         )}
       </div>
-    </a>
+    </Link>
   );
 }

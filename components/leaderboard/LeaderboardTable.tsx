@@ -36,7 +36,12 @@ export function LeaderboardTable({
       aVal = a[sortBy] ?? 0;
       bVal = b[sortBy] ?? 0;
     }
-    return sortDir === "desc" ? Number(bVal) - Number(aVal) : Number(aVal) - Number(bVal);
+    const primary = sortDir === "desc" ? Number(bVal) - Number(aVal) : Number(aVal) - Number(bVal);
+    if (primary !== 0) return primary;
+    // Tiebreak: highest precision wins
+    const aPrecision = a.avgPrecision ?? -Infinity;
+    const bPrecision = b.avgPrecision ?? -Infinity;
+    return bPrecision - aPrecision;
   });
 
   function handleSort(field: SortField) {

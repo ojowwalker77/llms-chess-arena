@@ -7,9 +7,6 @@ export interface CliMoveResult {
   rawOutput: string;
 }
 
-/**
- * Determine if a model should use its native CLI instead of OpenRouter.
- */
 export function isCliModel(openrouterId: string): boolean {
   return (
     openrouterId.startsWith("anthropic/") ||
@@ -20,21 +17,29 @@ export function isCliModel(openrouterId: string): boolean {
 }
 
 /**
- * Map an openrouterId to the CLI command and args.
- *
  * Routing:
  *   anthropic/*  → claude -p
  *   openai/*     → codex exec
  *   google/*     → gemini -p
  *   opencode/*   → opencode run
  */
-function getCliCommand(openrouterId: string): { command: string; args: string[] } {
+function getCliCommand(openrouterId: string): {
+  command: string;
+  args: string[];
+} {
   if (openrouterId.startsWith("anthropic/")) {
     const modelPart = openrouterId.replace("anthropic/", "");
     const cliModel = modelPart.replace(/\./g, "-");
     return {
       command: "claude",
-      args: ["-p", "--model", cliModel, "--tools", "", "--no-session-persistence"],
+      args: [
+        "-p",
+        "--model",
+        cliModel,
+        "--tools",
+        "",
+        "--no-session-persistence",
+      ],
     };
   }
 
@@ -42,7 +47,14 @@ function getCliCommand(openrouterId: string): { command: string; args: string[] 
     const modelPart = openrouterId.replace("openai/", "");
     return {
       command: "codex",
-      args: ["exec", "-m", modelPart, "--skip-git-repo-check", "--ephemeral", "-"],
+      args: [
+        "exec",
+        "-m",
+        modelPart,
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "-",
+      ],
     };
   }
 
@@ -71,7 +83,7 @@ function getCliCommand(openrouterId: string): { command: string; args: string[] 
 async function spawnCli(
   openrouterId: string,
   prompt: string,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<string> {
   const { command, args } = getCliCommand(openrouterId);
 
@@ -104,7 +116,11 @@ async function spawnCli(
     proc.on("close", (exitCode) => {
       clearTimeout(timeout);
       if (exitCode !== 0) {
-        reject(new Error(`CLI exited with code ${exitCode}: ${stderr.slice(0, 500)}`));
+        reject(
+          new Error(
+            `CLI exited with code ${exitCode}: ${stderr.slice(0, 500)}`,
+          ),
+        );
       } else {
         resolve(stdout);
       }
@@ -131,9 +147,18 @@ async function spawnCli(
  */
 export function parseMoveFromText(
   text: string,
-  legalMoves: string[]
+  legalMoves: string[],
 ): string | null {
   if (!text || legalMoves.length === 0) return null;
+
+  // Strategy 0: RESIGN detection
+  const resignMarker = text.match(/^MOVE:\s*RESIGN\b/im);
+  if (resignMarker) return "RESIGN";
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.some((l) => /^RESIGN$/i.test(l))) return "RESIGN";
 
   const legalSet = new Set(legalMoves);
   const sortedMoves = [...legalMoves].sort((a, b) => b.length - a.length);
@@ -146,7 +171,6 @@ export function parseMoveFromText(
   }
 
   // Strategy 2: last non-empty line
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length > 0) {
     const lastLine = lines[lines.length - 1];
     if (legalSet.has(lastLine)) return lastLine;
@@ -181,8 +205,15 @@ function buildCliPrompt(params: {
   legalMoves: string[];
   moveHistory: string[];
 }): string {
-  const { color, opponentName, fen, moveNumber, isCheck, legalMoves, moveHistory } =
-    params;
+  const {
+    color,
+    opponentName,
+    fen,
+    moveNumber,
+    isCheck,
+    legalMoves,
+    moveHistory,
+  } = params;
 
   const historyStr =
     moveHistory.length > 0 ? formatMoveHistory(moveHistory) : "(game start)";
@@ -206,7 +237,10 @@ Your goal is to win. Think about piece development, king safety, pawn structure,
 After your analysis, output your chosen move on its own line in EXACTLY this format:
 MOVE: <your move>
 
-The move MUST be exactly one of the legal moves listed above, in Standard Algebraic Notation (SAN). Do NOT output anything after the MOVE line.`;
+The move MUST be exactly one of the legal moves listed above, in Standard Algebraic Notation (SAN). Do NOT output anything after the MOVE line.
+
+If your position is clearly lost, you may resign instead:
+MOVE: RESIGN`;
 }
 
 function formatMoveHistory(moves: string[]): string {
@@ -226,7 +260,7 @@ function formatMoveHistory(moves: string[]): string {
 export function buildChessPrompt(
   game: ChessGame,
   color: "white" | "black",
-  opponentName: string
+  opponentName: string,
 ): string {
   const boardState = game.getBoardState();
   return buildCliPrompt({
@@ -248,7 +282,7 @@ export async function getCliMove(
   game: ChessGame,
   color: "white" | "black",
   opponentName: string,
-  options: { timeoutMs: number }
+  options: { timeoutMs: number },
 ): Promise<CliMoveResult | null> {
   const prompt = buildChessPrompt(game, color, opponentName);
   const rawOutput = await spawnCli(openrouterId, prompt, options.timeoutMs);
@@ -266,7 +300,7 @@ export async function getOpenRouterMove(
   game: ChessGame,
   color: "white" | "black",
   opponentName: string,
-  options: { timeoutMs: number }
+  options: { timeoutMs: number },
 ): Promise<CliMoveResult | null> {
   const prompt = buildChessPrompt(game, color, opponentName);
   const rawOutput = await callOpenRouter(openrouterId, prompt, {

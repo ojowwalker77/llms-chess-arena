@@ -52,11 +52,11 @@ export async function runGame(config: GameConfig): Promise<GameOutcome> {
     if (!turnResult.success) {
       let result: "white" | "black" | "draw";
 
-      if (turnResult.reason === "timeout") {
-        // Timeout: opponent gets the win directly
+      if (turnResult.reason === "timeout" || turnResult.reason === "resignation") {
+        // Timeout or resignation: opponent gets the win directly
         result = color === "white" ? "black" : "white";
         console.log(
-          `[Match ${config.matchId}] Timeout by ${color} (${currentModel.name}) → ${result} wins`
+          `[Match ${config.matchId}] ${turnResult.reason} by ${color} (${currentModel.name}) → ${result} wins`
         );
       } else {
         // Other forfeits (invalid_move, etc.): evaluate position with Stockfish
@@ -145,6 +145,11 @@ async function executeTurn(
     }
 
     allThinking.push(result.rawOutput);
+
+    // Handle resignation
+    if (result.move === "RESIGN") {
+      return { success: false, reason: "resignation", thinking: JSON.stringify(allThinking) };
+    }
 
     const moveResult = game.makeMove(result.move);
     if (moveResult.success) {

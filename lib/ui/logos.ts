@@ -7,7 +7,6 @@ const LAB_LOGOS: Record<string, string> = {
   moonshotai: "/logos/Kimi.svg",
 };
 
-// Fallback for models routed through gateways (e.g. opencode/)
 const MODEL_NAME_LOGOS: Array<{ pattern: string; logo: string }> = [
   { pattern: "glm", logo: "/logos/GLM.svg" },
   { pattern: "minimax", logo: "/logos/MiniMax.svg" },

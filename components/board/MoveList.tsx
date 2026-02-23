@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  classifyMove,
+  getCriticalSwing,
+  QUALITY_META,
+  type MoveQuality,
+} from "@/lib/chess/analysis";
+
 interface Move {
   id: number;
   moveNumber: number;
@@ -7,44 +14,6 @@ interface Move {
   san: string;
   engineEval: number | null;
 }
-
-type MoveQuality = "great" | "best" | "inaccuracy" | "mistake" | "blunder" | null;
-
-function classifyMove(
-  prevEval: number | null,
-  currEval: number | null,
-  color: "white" | "black",
-  moveNumber: number
-): MoveQuality {
-  if (prevEval === null || currEval === null) return null;
-
-  let cpl: number;
-  if (color === "white") {
-    cpl = Math.max(0, prevEval - currEval);
-  } else {
-    cpl = Math.max(0, currEval - prevEval);
-  }
-
-  if (cpl > 200) return "blunder";
-  if (cpl > 100) return "mistake";
-  if (cpl > 50) return "inaccuracy";
-
-  if (moveNumber >= 6 && cpl <= 5) {
-    const absEval = Math.abs(currEval);
-    if (absEval > 200) return "great";
-    if (cpl === 0 && absEval > 50) return "best";
-  }
-
-  return null;
-}
-
-const QUALITY_ICONS: Record<string, { icon: string; color: string; title: string }> = {
-  great: { icon: "!", color: "text-blue-400", title: "Great move" },
-  best: { icon: "★", color: "text-green-400", title: "Best move" },
-  inaccuracy: { icon: "?!", color: "text-yellow-400", title: "Inaccuracy" },
-  mistake: { icon: "?", color: "text-orange-400", title: "Mistake" },
-  blunder: { icon: "??", color: "text-red-400", title: "Blunder" },
-};
 
 export function MoveList({
   moves,
@@ -62,16 +31,26 @@ export function MoveList({
     return classifyMove(prevEval, move.engineEval, move.color, move.moveNumber);
   });
 
+  const criticalSwings: number[] = moves.map((move, i) => {
+    const prevEval = i === 0 ? 0 : moves[i - 1].engineEval;
+    return getCriticalSwing(prevEval, move.engineEval);
+  });
+
   // Group into pairs
   const pairs: Array<{
     moveNumber: number;
-    white?: { san: string; index: number; quality: MoveQuality };
-    black?: { san: string; index: number; quality: MoveQuality };
+    white?: { san: string; index: number; quality: MoveQuality; critical: boolean };
+    black?: { san: string; index: number; quality: MoveQuality; critical: boolean };
   }> = [];
 
   for (let i = 0; i < moves.length; i++) {
     const move = moves[i];
-    const entry = { san: move.san, index: i, quality: qualities[i] };
+    const entry = {
+      san: move.san,
+      index: i,
+      quality: qualities[i],
+      critical: criticalSwings[i] !== 0,
+    };
     if (move.color === "white") {
       pairs.push({ moveNumber: move.moveNumber, white: entry });
     } else {
@@ -122,11 +101,11 @@ function MoveCell({
   isActive,
   onClick,
 }: {
-  move: { san: string; index: number; quality: MoveQuality };
+  move: { san: string; index: number; quality: MoveQuality; critical: boolean };
   isActive: boolean;
   onClick: () => void;
 }) {
-  const q = move.quality && QUALITY_ICONS[move.quality];
+  const q = move.quality && move.quality !== "good" ? QUALITY_META[move.quality] : null;
 
   return (
     <button
@@ -135,6 +114,11 @@ function MoveCell({
         isActive ? "bg-amber-500/20 text-white" : "text-zinc-300"
       }`}
     >
+      {move.critical && (
+        <span className="text-[10px] text-amber-400" title="Turning point">
+          ⚡
+        </span>
+      )}
       <span>{move.san}</span>
       {q && (
         <span className={`text-[10px] font-bold ${q.color}`} title={q.title}>

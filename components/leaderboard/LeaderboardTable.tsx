@@ -13,10 +13,13 @@ interface LeaderboardEntry {
   losses: number;
   points: number;
   winDelta: number;
+  totalMovesPlayed: number;
   avgPrecision: number | null;
+  avgAcpl: number | null;
+  estimatedElo: number | null;
 }
 
-type SortField = "points" | "gamesPlayed" | "wins" | "winDelta" | "avgPrecision";
+type SortField = "points" | "gamesPlayed" | "wins" | "winDelta" | "totalMovesPlayed" | "avgPrecision" | "avgAcpl" | "estimatedElo";
 
 export function LeaderboardTable({
   entries,
@@ -29,16 +32,20 @@ export function LeaderboardTable({
   const sorted = [...entries].sort((a, b) => {
     let aVal: number;
     let bVal: number;
-    if (sortBy === "avgPrecision") {
-      aVal = a.avgPrecision ?? -Infinity;
-      bVal = b.avgPrecision ?? -Infinity;
+    if (sortBy === "avgPrecision" || sortBy === "estimatedElo" || sortBy === "avgAcpl") {
+      aVal = a[sortBy] ?? -Infinity;
+      bVal = b[sortBy] ?? -Infinity;
     } else {
       aVal = a[sortBy] ?? 0;
       bVal = b[sortBy] ?? 0;
     }
     const primary = sortDir === "desc" ? Number(bVal) - Number(aVal) : Number(aVal) - Number(bVal);
     if (primary !== 0) return primary;
-    // Tiebreak: highest precision wins
+    // Tiebreak: W-L delta > total moves played > avg precision
+    const deltaDiff = b.winDelta - a.winDelta;
+    if (deltaDiff !== 0) return deltaDiff;
+    const movesDiff = b.totalMovesPlayed - a.totalMovesPlayed;
+    if (movesDiff !== 0) return movesDiff;
     const aPrecision = a.avgPrecision ?? -Infinity;
     const bPrecision = b.avgPrecision ?? -Infinity;
     return bPrecision - aPrecision;
@@ -97,10 +104,31 @@ export function LeaderboardTable({
             </th>
             <th
               className="py-3 px-4 font-medium cursor-pointer hover:text-zinc-100 transition-colors"
+              onClick={() => handleSort("totalMovesPlayed")}
+            >
+              Moves
+              <SortIndicator field="totalMovesPlayed" />
+            </th>
+            <th
+              className="py-3 px-4 font-medium cursor-pointer hover:text-zinc-100 transition-colors"
               onClick={() => handleSort("avgPrecision")}
             >
-              Avg Precision
+              Accuracy
               <SortIndicator field="avgPrecision" />
+            </th>
+            <th
+              className="py-3 px-4 font-medium cursor-pointer hover:text-zinc-100 transition-colors"
+              onClick={() => handleSort("avgAcpl")}
+            >
+              ACPL
+              <SortIndicator field="avgAcpl" />
+            </th>
+            <th
+              className="py-3 px-4 font-medium cursor-pointer hover:text-zinc-100 transition-colors"
+              onClick={() => handleSort("estimatedElo")}
+            >
+              Est. ELO
+              <SortIndicator field="estimatedElo" />
             </th>
           </tr>
         </thead>
@@ -158,6 +186,9 @@ export function LeaderboardTable({
                   {entry.winDelta}
                 </span>
               </td>
+              <td className="py-3 px-4 font-mono text-zinc-300">
+                {entry.totalMovesPlayed}
+              </td>
               <td className="py-3 px-4 font-mono">
                 {entry.avgPrecision !== null ? (
                   <span
@@ -175,6 +206,30 @@ export function LeaderboardTable({
                   <span className="text-zinc-600">--</span>
                 )}
               </td>
+              <td className="py-3 px-4 font-mono">
+                {entry.avgAcpl !== null ? (
+                  <span
+                    className={
+                      entry.avgAcpl <= 30
+                        ? "text-green-400"
+                        : entry.avgAcpl <= 60
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                    }
+                  >
+                    {entry.avgAcpl.toFixed(0)}
+                  </span>
+                ) : (
+                  <span className="text-zinc-600">--</span>
+                )}
+              </td>
+              <td className="py-3 px-4 font-mono">
+                {entry.estimatedElo !== null ? (
+                  <span className="text-zinc-200">{entry.estimatedElo}</span>
+                ) : (
+                  <span className="text-zinc-600">--</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -187,4 +242,3 @@ export function LeaderboardTable({
     </div>
   );
 }
-

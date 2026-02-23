@@ -27,8 +27,8 @@ export async function runGame(config: GameConfig): Promise<GameOutcome> {
   const game = new ChessGame();
 
   const maxHalfMoves = (config.maxMoves || 150) * 2;
-  const maxRetries = config.maxRetries || 3;
-  const turnTimeoutMs = config.turnTimeoutMs || 240000;
+  const maxRetries = config.maxRetries ?? 1;
+  const turnTimeoutMs = config.turnTimeoutMs || 480000;
 
   matchQueries.updateMatchStatus(config.matchId, "running");
 
@@ -121,14 +121,18 @@ async function executeTurn(
 ): Promise<TurnResult> {
   const useCli = isCliModel(model.openrouterId);
   const allThinking: string[] = [];
+  // CLI models get full timeout (process startup overhead), OpenRouter gets less
+  const effectiveTimeout = useCli ? timeoutMs : Math.min(timeoutMs, 300000);
+  let lastInvalidMove: string | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     let result: CliMoveResult | null;
 
     try {
+      const moveOptions = { timeoutMs: effectiveTimeout, invalidMoveWarning: lastInvalidMove };
       result = useCli
-        ? await getCliMove(model.openrouterId, game, color, opponent.name, { timeoutMs })
-        : await getOpenRouterMove(model.openrouterId, game, color, opponent.name, { timeoutMs });
+        ? await getCliMove(model.openrouterId, game, color, opponent.name, moveOptions)
+        : await getOpenRouterMove(model.openrouterId, game, color, opponent.name, moveOptions);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         return { success: false, reason: "timeout" };
@@ -141,6 +145,7 @@ async function executeTurn(
 
     if (!result) {
       allThinking.push(`[Attempt ${attempt + 1}] No parseable move from output`);
+      lastInvalidMove = "(unparseable output)";
       continue;
     }
 
@@ -163,6 +168,7 @@ async function executeTurn(
     }
 
     allThinking.push(`[Attempt ${attempt + 1}] Engine rejected move: ${result.move}`);
+    lastInvalidMove = result.move;
   }
 
   console.error(`[executeTurn] All retries exhausted for ${model.name}:`, allThinking);

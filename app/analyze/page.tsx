@@ -6,15 +6,19 @@ import { useStockfish } from "@/hooks/useStockfish";
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// Lichess win% conversion: centipawns → win probability (0-100)
-function winPct(cp: number): number {
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+/**
+ * Lichess per-move accuracy formula.
+ * Based on win probability difference before and after the move.
+ * See: https://lichess.org/page/accuracy
+ */
+function winProbability(cp: number): number {
+  const clamped = Math.max(-1000, Math.min(1000, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * clamped)) - 1);
 }
 
-// Lichess per-move accuracy formula
 function calcMoveAccuracy(wpBefore: number, wpAfter: number): number {
-  const winDiff = wpBefore - wpAfter;
-  const raw = 103.1668 * Math.exp(-0.04354 * winDiff) - 3.1669 + 1;
+  const loss = wpBefore - wpAfter; // positive = lost win%, negative = gained
+  const raw = 103.1668 * Math.exp(-0.04354 * loss) - 3.1669;
   return Math.min(100, Math.max(0, raw));
 }
 
@@ -75,9 +79,17 @@ export default function AnalyzePage() {
         const move = item.moves[i];
         const result = await evaluate(move.fenAfter);
 
-        // Lichess-style accuracy: convert to win% then measure loss
-        const wpBefore = move.color === "white" ? winPct(prevCp) : 100 - winPct(prevCp);
-        const wpAfter = move.color === "white" ? winPct(result.cp) : 100 - winPct(result.cp);
+        // Lichess accuracy: compare win probability before and after the move
+        // Win% is always from the side-to-move's perspective
+        let wpBefore: number;
+        let wpAfter: number;
+        if (move.color === "white") {
+          wpBefore = winProbability(prevCp);
+          wpAfter = winProbability(result.cp);
+        } else {
+          wpBefore = 100 - winProbability(prevCp);
+          wpAfter = 100 - winProbability(result.cp);
+        }
         const accuracy = calcMoveAccuracy(wpBefore, wpAfter);
 
         evaluations.push({ eval: result.cp, accuracy });

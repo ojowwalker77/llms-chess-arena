@@ -17,7 +17,7 @@ function getStockfishPath(): string {
  */
 export async function evaluatePosition(
   fen: string,
-  depth = 12
+  depth = 16
 ): Promise<number> {
   try {
     return await evaluateWithStockfish(fen, depth);

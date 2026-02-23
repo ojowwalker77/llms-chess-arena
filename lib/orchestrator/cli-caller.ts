@@ -98,23 +98,38 @@ async function spawnCli(
 
     let stdout = "";
     let stderr = "";
+    let resolved = false;
 
     proc.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
+
+      // Early exit: if we detect "MOVE: ..." or "RESIGN", kill the process
+      // immediately instead of waiting for the CLI to finish
+      if (!resolved && /^MOVE:\s*.+$/m.test(stdout)) {
+        resolved = true;
+        clearTimeout(timeout);
+        proc.kill();
+        resolve(stdout);
+      }
     });
     proc.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
 
     const timeout = setTimeout(() => {
-      proc.kill();
-      const err = new Error("CLI process timed out");
-      err.name = "AbortError";
-      reject(err);
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        const err = new Error("CLI process timed out");
+        err.name = "AbortError";
+        reject(err);
+      }
     }, timeoutMs);
 
     proc.on("close", (exitCode) => {
       clearTimeout(timeout);
+      if (resolved) return; // Already resolved via early detection
+      resolved = true;
       if (exitCode !== 0) {
         reject(
           new Error(
@@ -128,6 +143,8 @@ async function spawnCli(
 
     proc.on("error", (err) => {
       clearTimeout(timeout);
+      if (resolved) return;
+      resolved = true;
       reject(err);
     });
 
@@ -204,6 +221,7 @@ function buildCliPrompt(params: {
   isCheck: boolean;
   legalMoves: string[];
   moveHistory: string[];
+  invalidMoveWarning?: string;
 }): string {
   const {
     color,
@@ -213,6 +231,7 @@ function buildCliPrompt(params: {
     isCheck,
     legalMoves,
     moveHistory,
+    invalidMoveWarning,
   } = params;
 
   const historyStr =
@@ -222,25 +241,24 @@ function buildCliPrompt(params: {
     ? "\n*** YOUR KING IS IN CHECK. You must resolve the check. ***\n"
     : "";
 
-  return `You are playing chess as ${color} against ${opponentName}. It is move ${moveNumber}.
-${checkWarning}
-CURRENT POSITION (FEN): ${fen}
+  const retryWarning = invalidMoveWarning
+    ? `\n*** WARNING: Your previous move "${invalidMoveWarning}" was ILLEGAL. This is your LAST chance. Pick a move ONLY from the legal moves list below or you FORFEIT. ***\n`
+    : "";
 
-MOVE HISTORY: ${historyStr}
+  return `You are playing chess as ${color} against ${opponentName}. Move ${moveNumber}.
+${checkWarning}${retryWarning}
+FEN: ${fen}
+
+HISTORY: ${historyStr}
 
 LEGAL MOVES: ${legalMoves.join(", ")}
 
-Your goal is to win. Think about piece development, king safety, pawn structure, and tactical opportunities.
+Pick the strongest move. Be FAST — you have a strict timeout and will LOSE if you exceed it.
 
-*** CRITICAL: You have a STRICT 4-MINUTE TIMEOUT. If you exceed it, you LOSE THE GAME IMMEDIATELY — your opponent gets the full win. Timeout is the #1 cause of losses in this arena. Be decisive. Do NOT overthink. Pick a strong move and output it FAST. ***
+Output EXACTLY one line:
+MOVE: <san>
 
-After your analysis, output your chosen move on its own line in EXACTLY this format:
-MOVE: <your move>
-
-The move MUST be exactly one of the legal moves listed above, in Standard Algebraic Notation (SAN). Do NOT output anything after the MOVE line.
-
-If your position is clearly lost, you may resign instead:
-MOVE: RESIGN`;
+The move MUST be one of the legal moves above. Output nothing after the MOVE line. If the position is not winnable the honered thing to do it to resign by responding: MOVE: RESIGN`;
 }
 
 function formatMoveHistory(moves: string[]): string {
@@ -261,6 +279,7 @@ export function buildChessPrompt(
   game: ChessGame,
   color: "white" | "black",
   opponentName: string,
+  invalidMoveWarning?: string,
 ): string {
   const boardState = game.getBoardState();
   return buildCliPrompt({
@@ -271,6 +290,7 @@ export function buildChessPrompt(
     isCheck: boardState.isCheck,
     legalMoves: game.getLegalMoves(),
     moveHistory: game.history(),
+    invalidMoveWarning,
   });
 }
 
@@ -282,9 +302,9 @@ export async function getCliMove(
   game: ChessGame,
   color: "white" | "black",
   opponentName: string,
-  options: { timeoutMs: number },
+  options: { timeoutMs: number; invalidMoveWarning?: string },
 ): Promise<CliMoveResult | null> {
-  const prompt = buildChessPrompt(game, color, opponentName);
+  const prompt = buildChessPrompt(game, color, opponentName, options.invalidMoveWarning);
   const rawOutput = await spawnCli(openrouterId, prompt, options.timeoutMs);
   const move = parseMoveFromText(rawOutput, game.getLegalMoves());
 
@@ -300,9 +320,9 @@ export async function getOpenRouterMove(
   game: ChessGame,
   color: "white" | "black",
   opponentName: string,
-  options: { timeoutMs: number },
+  options: { timeoutMs: number; invalidMoveWarning?: string },
 ): Promise<CliMoveResult | null> {
-  const prompt = buildChessPrompt(game, color, opponentName);
+  const prompt = buildChessPrompt(game, color, opponentName, options.invalidMoveWarning);
   const rawOutput = await callOpenRouter(openrouterId, prompt, {
     timeout: options.timeoutMs,
   });

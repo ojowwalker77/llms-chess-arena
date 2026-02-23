@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { NavLinks } from "@/components/nav/NavLinks";
 import { LiveIndicator } from "@/components/nav/LiveIndicator";
 import "./globals.css";
 
@@ -23,25 +22,17 @@ export default function RootLayout({
               href="/"
               className="flex items-center gap-2.5 shrink-0"
             >
-              <span
-                className="text-2xl text-amber-400 leading-none"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
+              <span className="text-2xl text-amber-400 leading-none">
                 &#9819;
               </span>
-              <span
-                className="text-xl tracking-tight text-zinc-100"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
+              <span className="text-xl font-semibold tracking-tight text-zinc-100">
                 Chess LLM Arena
               </span>
             </Link>
-            <NavLinks />
             <div className="ml-auto">
               <LiveIndicator />
             </div>
           </div>
-          {/* Subtle amber accent line */}
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
         </header>
         <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>

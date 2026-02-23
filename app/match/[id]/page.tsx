@@ -5,6 +5,7 @@ import { ReplayBoard } from "@/components/board/ReplayBoard";
 import { LiveMatchBoard } from "@/components/board/LiveMatchBoard";
 import { AnalysisPanel } from "@/components/match/AnalysisPanel";
 import { StarButton } from "@/components/match/StarButton";
+import { identifyOpening } from "@/lib/chess/openings";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,8 @@ export default async function MatchPage({
           ? "½-½"
           : "In Progress";
 
+  const opening = moves.length > 0 ? identifyOpening(moves.map((m) => m.san)) : null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -54,10 +57,7 @@ export default async function MatchPage({
           </Link>
         </div>
         <div className="flex items-center gap-3 mt-2">
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
+          <h1 className="text-2xl font-bold">
             {match.whiteModel?.name || "Unknown"} vs{" "}
             {match.blackModel?.name || "Unknown"}
           </h1>
@@ -82,6 +82,12 @@ export default async function MatchPage({
                 {(match.blackAvgCpl ?? 0).toFixed(1)}%
               </span>
             )}
+          </div>
+        )}
+        {opening && (
+          <div className="mt-1 text-sm">
+            <span className="text-zinc-500 font-mono">{opening.eco}</span>
+            <span className="text-zinc-400 ml-2">{opening.name}</span>
           </div>
         )}
       </div>
@@ -116,6 +122,7 @@ export default async function MatchPage({
           matchId={matchId}
           existingWhiteCpl={match.whiteAvgCpl}
           existingBlackCpl={match.blackAvgCpl}
+          moves={moves}
         />
       )}
 

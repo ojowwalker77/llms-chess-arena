@@ -92,7 +92,7 @@ export function useStockfish() {
     worker.addEventListener("message", handler);
     worker.postMessage("ucinewgame");
     worker.postMessage(`position fen ${next.fen}`);
-    worker.postMessage("go depth 16");
+    worker.postMessage("go depth 20");
   }
 
   const evaluate = useCallback(

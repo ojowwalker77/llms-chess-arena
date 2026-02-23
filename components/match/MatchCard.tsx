@@ -33,6 +33,12 @@ export function MatchCard({
 
   const moveCount = match.totalMoves > 0 ? Math.ceil(match.totalMoves / 2) : null;
 
+  function accuracyColor(v: number) {
+    if (v >= 80) return "text-green-400";
+    if (v >= 50) return "text-yellow-400";
+    return "text-red-400";
+  }
+
   return (
     <Link
       href={`/match/${match.id}`}
@@ -45,17 +51,24 @@ export function MatchCard({
           {whiteLogo && (
             <img src={whiteLogo} alt="" className="w-5 h-5 shrink-0" />
           )}
-          <span
-            className={`text-sm font-medium truncate ${
-              isWhiteWin
-                ? "text-zinc-100"
-                : isBlackWin
-                  ? "text-zinc-500"
-                  : "text-zinc-300"
-            }`}
-          >
-            {whiteModel?.name || `Model #${match.whiteModelId}`}
-          </span>
+          <div className="min-w-0">
+            <span
+              className={`text-sm font-medium truncate block ${
+                isWhiteWin
+                  ? "text-zinc-100"
+                  : isBlackWin
+                    ? "text-zinc-500"
+                    : "text-zinc-300"
+              }`}
+            >
+              {whiteModel?.name || `Model #${match.whiteModelId}`}
+            </span>
+            {match.whiteAvgCpl != null && (
+              <span className={`text-xs font-mono ${accuracyColor(match.whiteAvgCpl)}`}>
+                {match.whiteAvgCpl.toFixed(1)}%
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Result center */}
@@ -70,10 +83,9 @@ export function MatchCard({
             </div>
           ) : resultLabel ? (
             <span
-              className={`text-base font-bold ${
+              className={`text-base font-bold font-mono ${
                 match.result === "draw" ? "text-zinc-400" : "text-zinc-100"
               }`}
-              style={{ fontFamily: "var(--font-mono)" }}
             >
               {resultLabel}
             </span>
@@ -84,17 +96,24 @@ export function MatchCard({
 
         {/* Black side */}
         <div className="flex items-center gap-2.5 flex-1 min-w-0 justify-end">
-          <span
-            className={`text-sm font-medium truncate text-right ${
-              isBlackWin
-                ? "text-zinc-100"
-                : isWhiteWin
-                  ? "text-zinc-500"
-                  : "text-zinc-300"
-            }`}
-          >
-            {blackModel?.name || `Model #${match.blackModelId}`}
-          </span>
+          <div className="min-w-0 text-right">
+            <span
+              className={`text-sm font-medium truncate block ${
+                isBlackWin
+                  ? "text-zinc-100"
+                  : isWhiteWin
+                    ? "text-zinc-500"
+                    : "text-zinc-300"
+              }`}
+            >
+              {blackModel?.name || `Model #${match.blackModelId}`}
+            </span>
+            {match.blackAvgCpl != null && (
+              <span className={`text-xs font-mono ${accuracyColor(match.blackAvgCpl)}`}>
+                {match.blackAvgCpl.toFixed(1)}%
+              </span>
+            )}
+          </div>
           {blackLogo && (
             <img src={blackLogo} alt="" className="w-5 h-5 shrink-0" />
           )}

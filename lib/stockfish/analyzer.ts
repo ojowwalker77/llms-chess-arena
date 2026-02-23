@@ -55,7 +55,7 @@ export class StockfishAnalyzer {
     });
   }
 
-  async evaluatePosition(fen: string, depth = 18): Promise<PositionEval> {
+  async evaluatePosition(fen: string, depth = 20): Promise<PositionEval> {
     if (!this.worker || !this.ready) {
       throw new Error("Stockfish not initialized");
     }
@@ -100,7 +100,7 @@ export class StockfishAnalyzer {
   async analyzeGame(
     moves: Array<{ fenAfter: string; color: "white" | "black" }>,
     onProgress?: (current: number, total: number) => void,
-    depth = 16,
+    depth = 20,
   ): Promise<MoveAnalysis[]> {
     const startingFen =
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

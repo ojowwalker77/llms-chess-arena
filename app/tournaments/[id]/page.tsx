@@ -97,15 +97,12 @@ export default async function TournamentDetailPage({
     <div className="space-y-6">
       <div>
         <Link
-          href="/tournaments"
+          href="/"
           className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
         >
-          &larr; Back to Tournaments
+          &larr; Back
         </Link>
-        <h1
-          className="text-2xl font-bold mt-2"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+        <h1 className="text-2xl font-bold mt-2">
           {tournament.name}
         </h1>
         <p className="text-sm text-zinc-400 mt-1">

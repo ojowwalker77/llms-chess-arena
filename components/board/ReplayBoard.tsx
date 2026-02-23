@@ -5,6 +5,7 @@ import { Chessboard } from "react-chessboard";
 import { MoveList } from "./MoveList";
 import { EvalBar } from "./EvalBar";
 import { AutoAnalyzer } from "./AutoAnalyzer";
+import { WinProbabilityChart } from "@/components/match/WinProbabilityChart";
 import { getLabLogo } from "@/lib/ui/logos";
 
 interface MoveData {
@@ -263,6 +264,15 @@ export function ReplayBoard({
         logo={whiteLogo}
         colorClass="bg-white"
       />
+
+      {/* Win Probability Chart */}
+      {moves.some((m) => m.engineEval !== null) && (
+        <WinProbabilityChart
+          moves={moves}
+          currentIndex={currentIndex}
+          onSelectMove={setCurrentIndex}
+        />
+      )}
 
       {/* Mobile: moves + controls below */}
       {!isWideLayout && sidePanel}
